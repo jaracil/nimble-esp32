@@ -23,11 +23,11 @@
 #include <assert.h>
 #include <stdint.h>
 #include <string.h>
-#include "FreeRTOS.h"
-#include "queue.h"
-#include "semphr.h"
-#include "task.h"
-#include "timers.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/queue.h"
+#include "freertos/semphr.h"
+#include "freertos/task.h"
+#include "freertos/timers.h"
 
 #ifdef __cplusplus
 extern "C" {
