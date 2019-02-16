@@ -37,6 +37,15 @@ extern "C" {
 
 #define BLE_NPL_TIME_FOREVER    portMAX_DELAY
 
+#define SYSINIT_PANIC_MSG(msg) assert(0)
+
+#define SYSINIT_PANIC_ASSERT_MSG(rc, msg) do \
+{                                            \
+    if (!(rc)) {                             \
+        SYSINIT_PANIC_MSG(msg);              \
+    }                                        \
+} while (0)
+
 /* This should be compatible with TickType_t */
 typedef uint32_t ble_npl_time_t;
 typedef int32_t ble_npl_stime_t;
