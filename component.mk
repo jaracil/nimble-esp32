@@ -76,7 +76,7 @@ COMPONENT_OBJS := \
 	mynewt-nimble/nimble/host/src/ble_hs_dbg.o \
 	mynewt-nimble/nimble/host/src/ble_ibeacon.o \
 	mynewt-nimble/nimble/transport/uart/src/ble_hci_uart.o \
-    mynewt-nimble/porting/nimble/src/endian.o \
+	mynewt-nimble/porting/nimble/src/endian.o \
 	mynewt-nimble/porting/nimble/src/nimble_port.o \
 	mynewt-nimble/porting/nimble/src/os_mbuf.o \
 	mynewt-nimble/porting/nimble/src/os_cputime.o \
@@ -84,7 +84,7 @@ COMPONENT_OBJS := \
 	mynewt-nimble/porting/nimble/src/mem.o \
 	mynewt-nimble/porting/nimble/src/os_cputime_pwr2.o \
 	mynewt-nimble/porting/nimble/src/os_msys_init.o \
-    mynewt-nimble/ext/tinycrypt/src/aes_decrypt.o \
+	mynewt-nimble/ext/tinycrypt/src/aes_decrypt.o \
 	mynewt-nimble/ext/tinycrypt/src/ctr_mode.o \
 	mynewt-nimble/ext/tinycrypt/src/ecc_platform_specific.o \
 	mynewt-nimble/ext/tinycrypt/src/aes_encrypt.o \
