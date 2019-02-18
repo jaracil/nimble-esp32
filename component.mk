@@ -101,10 +101,11 @@ COMPONENT_OBJS := \
 	mynewt-nimble/ext/tinycrypt/src/utils.o	\
 	porting/npl/freertos/src/nimble_port_freertos.o \
 	porting/npl/freertos/src/npl_os_freertos.o \
-
+	porting/vhci_uart/src/vhci_uart.o \
 
 COMPONENT_SRCDIRS := \
 	porting/npl/freertos/src \
+	porting/vhci_uart/src \
 	mynewt-nimble/porting/nimble/src \
 	mynewt-nimble/ext/tinycrypt/src \
 	mynewt-nimble/nimble/transport/uart/src \
