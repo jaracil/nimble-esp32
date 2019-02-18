@@ -2,6 +2,7 @@
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/event_groups.h"
+#include "freertos/queue.h"
 #include "freertos/task.h"
 #include "esp_bt.h"
 
@@ -10,9 +11,10 @@
 
 #define EVT_FL_START_TX (1 << 0)
 #define EVT_FL_START_RX (1 << 1)
-#define EVT_FL_VHCI_AVAIL (1 << 2)
-#define EVT_FL_OPEN (1 << 3)
-#define EVT_FL_CLOSE (1 << 4)
+#define EVT_FL_VHCI_TX_AVAIL (1 << 2)
+#define EVT_FL_VHCI_RX_AVAIL (1 << 3)
+#define EVT_FL_OPEN (1 << 4)
+#define EVT_FL_CLOSE (1 << 5)
 
 
 static hal_uart_tx_char tx_char_cb;
@@ -20,6 +22,7 @@ static hal_uart_rx_char rx_char_cb;
 static hal_uart_tx_done tx_done_cb;
 static void *cb_arg;
 static EventGroupHandle_t evt_flags;
+static QueueHandle_t vhci_rx_queue;
 static bool uart_open;
 esp_bt_controller_config_t bt_cfg = BT_CONTROLLER_INIT_CONFIG_DEFAULT();
 static bool controller_init;
@@ -34,40 +37,14 @@ static int wait_open() {
     return 0; 
 }
 
-static int wait_start_tx() {
-    EventBits_t ev_bits;
-    while(true) {
-        ev_bits = xEventGroupWaitBits(evt_flags, EVT_FL_START_TX | EVT_FL_CLOSE, pdTRUE, pdFALSE, portMAX_DELAY);
-        if (ev_bits & EVT_FL_CLOSE) {
-            return -1;
-        }
-        if (ev_bits & EVT_FL_START_TX) {
-            return 0;
-        }
-    }
-}
-
-static int wait_start_rx() {
-    EventBits_t ev_bits;
-    while(true) {
-        ev_bits = xEventGroupWaitBits(evt_flags, EVT_FL_START_RX | EVT_FL_CLOSE, pdTRUE, pdFALSE, portMAX_DELAY);
-        if (ev_bits & EVT_FL_CLOSE) {
-            return -1;
-        }
-        if (ev_bits & EVT_FL_START_RX) {
-            return 0;
-        }
-    }
-}
-
-static int wait_vhci_avail() {
+static int wait_vhci_tx_avail() {
     EventBits_t ev_bits;
     while(!esp_vhci_host_check_send_available()) {
-        ev_bits = xEventGroupWaitBits(evt_flags, EVT_FL_VHCI_AVAIL | EVT_FL_CLOSE, pdTRUE, pdFALSE, portMAX_DELAY);
+        ev_bits = xEventGroupWaitBits(evt_flags, EVT_FL_VHCI_TX_AVAIL | EVT_FL_CLOSE, pdTRUE, pdFALSE, portMAX_DELAY);
         if (ev_bits & EVT_FL_CLOSE) {
             return -1;
         }
-        if (ev_bits & EVT_FL_VHCI_AVAIL) {
+        if (ev_bits & EVT_FL_VHCI_TX_AVAIL) {
             return 0;
         }
     }
@@ -76,22 +53,17 @@ static int wait_vhci_avail() {
 
 void notify_host_send_available(void) {
     ESP_LOGI(LOG_TAG, "notify_host_send_available call");
-    xEventGroupSetBits(evt_flags, EVT_FL_VHCI_AVAIL);
+    xEventGroupSetBits(evt_flags, EVT_FL_VHCI_TX_AVAIL);
 }
     
 int notify_host_recv(uint8_t *data, uint16_t len) {
-    ESP_LOGI(LOG_TAG, "notify_host_recv call");
+    ESP_LOGI(LOG_TAG, "notify_host_recv size:%d", len);
     for (int idx = 0; idx < len; idx ++){
-        while (rx_char_cb(cb_arg, data[idx]) == -1) {
-            if(wait_start_rx() == -1) return 0;
+        if (xQueueSend(vhci_rx_queue, &data[idx], 0) != pdTRUE) {
+            ESP_LOGE(LOG_TAG," rx queue overflow");
         }
     }
-    ESP_LOGI(LOG_TAG, "recv %d bytes from vhci", len);
-    for(int i = 0; i < len; i++) {
-        printf("%02x ", data[i]);
-    }
-    printf("\n");
-
+    xEventGroupSetBits(evt_flags, EVT_FL_VHCI_RX_AVAIL);
     return 0;
 }
 
@@ -105,30 +77,47 @@ static void uart_task(void *arg) {
     int data;
     uint8_t buf[256];
     int buf_sz = 0;
+    EventBits_t ev_bits;
 
     while(true) {
         wait_open();
         ESP_LOGI(LOG_TAG, "uart openned");
         while(uart_open) {
-            if (wait_start_tx() != 0) break;
-            buf_sz = 0;
-            while ((data = tx_char_cb(cb_arg)) >= 0) {
-                buf[buf_sz] = data;
-                buf_sz ++;
+            ev_bits = xEventGroupWaitBits(evt_flags, EVT_FL_START_TX | EVT_FL_VHCI_RX_AVAIL | EVT_FL_CLOSE, pdTRUE, pdFALSE, portMAX_DELAY);
+            if (ev_bits & EVT_FL_CLOSE) break;
+
+            if (ev_bits & EVT_FL_START_TX) {
+                buf_sz = 0;
+                while ((data = tx_char_cb(cb_arg)) >= 0) {
+                    buf[buf_sz] = data;
+                    buf_sz ++;
+                }
+                if (wait_vhci_tx_avail() != 0) break;
+                printf("send %d bytes to vhci:", buf_sz);
+                for(int i = 0; i < buf_sz; i++) {
+                    printf("%02x ", buf[i]);
+                }
+                printf("\n");
+                esp_vhci_host_send_packet(buf, buf_sz);
             }
-            if (wait_vhci_avail() != 0) break;
-            ESP_LOGI(LOG_TAG, "send %d bytes to vhci", buf_sz);
-            for(int i = 0; i < buf_sz; i++) {
-                printf("%02x ", buf[i]);
+
+            if (ev_bits & EVT_FL_VHCI_RX_AVAIL) {
+                uint8_t d;
+                printf("Received %d bytes from vhci:", uxQueueMessagesWaiting(vhci_rx_queue));
+                while (xQueueReceive(vhci_rx_queue, &d, 0)) {
+                    if (rx_char_cb(cb_arg, d) != 0) {
+                        printf("Character rejected by Host !!!!!!!!!!!!!!!!!");
+                    }
+                    printf("%02x ", d);
+                }
+                printf("\n");
             }
-            printf("\n");
-            esp_vhci_host_send_packet(buf, buf_sz);
         }
     }
 }
 
 int hal_uart_init_cbs(int uart, hal_uart_tx_char tx_func, hal_uart_tx_done tx_done, hal_uart_rx_char rx_func, void *arg) {
-
+    ESP_LOGI(LOG_TAG, "hal_uart_init_cbs call uart:%d", uart);
     if (!uart_open) {
         tx_char_cb = tx_func;
         rx_char_cb = rx_func;
@@ -136,6 +125,7 @@ int hal_uart_init_cbs(int uart, hal_uart_tx_char tx_func, hal_uart_tx_done tx_do
         cb_arg = arg;
         
         if (evt_flags == NULL) evt_flags = xEventGroupCreate();
+        if (vhci_rx_queue == NULL) vhci_rx_queue = xQueueCreate(255, sizeof(uint8_t)); 
 
         if (esp_bt_controller_mem_release(ESP_BT_MODE_CLASSIC_BT)) {
             ESP_LOGI(LOG_TAG, "Bluetooth controller release classic bt memory failed");
@@ -164,7 +154,6 @@ int hal_uart_init_cbs(int uart, hal_uart_tx_char tx_func, hal_uart_tx_done tx_do
 
         uart_open = true;
         xEventGroupSetBits(evt_flags, EVT_FL_OPEN);
-        ESP_LOGI(LOG_TAG, "hal_uart_init_cbs call uart:%d", uart);
         return 0;
     }
     return -1;
