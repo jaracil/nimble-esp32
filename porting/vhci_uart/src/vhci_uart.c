@@ -2,7 +2,7 @@
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/event_groups.h"
-#include "freertos/queue.h"
+#include "freertos/ringbuf.h"
 #include "freertos/task.h"
 #include "esp_bt.h"
 
@@ -22,7 +22,7 @@ static hal_uart_rx_char rx_char_cb;
 static hal_uart_tx_done tx_done_cb;
 static void *cb_arg;
 static EventGroupHandle_t evt_flags;
-static QueueHandle_t vhci_rx_queue;
+static RingbufHandle_t vhci_rx_queue;
 static bool uart_open;
 esp_bt_controller_config_t bt_cfg = BT_CONTROLLER_INIT_CONFIG_DEFAULT();
 static bool controller_init;
@@ -58,10 +58,8 @@ void notify_host_send_available(void) {
     
 int notify_host_recv(uint8_t *data, uint16_t len) {
     ESP_LOGI(LOG_TAG, "notify_host_recv size:%d", len);
-    for (int idx = 0; idx < len; idx ++){
-        if (xQueueSend(vhci_rx_queue, &data[idx], 0) != pdTRUE) {
-            ESP_LOGE(LOG_TAG," rx queue overflow");
-        }
+    if (!xRingbufferSend(vhci_rx_queue, data, len, pdMS_TO_TICKS(1000))) {
+         ESP_LOGE(LOG_TAG," rx queue overflow");
     }
     xEventGroupSetBits(evt_flags, EVT_FL_VHCI_RX_AVAIL);
     return 0;
@@ -102,13 +100,16 @@ static void uart_task(void *arg) {
             }
 
             if (ev_bits & EVT_FL_VHCI_RX_AVAIL) {
-                uint8_t d;
-                printf("Received %d bytes from vhci:", uxQueueMessagesWaiting(vhci_rx_queue));
-                while (xQueueReceive(vhci_rx_queue, &d, 0)) {
-                    if (rx_char_cb(cb_arg, d) != 0) {
-                        printf("Character rejected by Host !!!!!!!!!!!!!!!!!");
+                printf("Received from vhci:");
+
+                size_t item_size;
+                uint8_t *item;
+                while((item = (uint8_t *) xRingbufferReceive(vhci_rx_queue, &item_size, 0)) != NULL) {
+                    for (size_t i = 0; i < item_size; i++) {
+                        rx_char_cb(cb_arg, item[i]);
+                        printf("%02x ", item[i]);
                     }
-                    printf("%02x ", d);
+                    vRingbufferReturnItem(vhci_rx_queue, item);
                 }
                 printf("\n");
             }
@@ -125,7 +126,7 @@ int hal_uart_init_cbs(int uart, hal_uart_tx_char tx_func, hal_uart_tx_done tx_do
         cb_arg = arg;
         
         if (evt_flags == NULL) evt_flags = xEventGroupCreate();
-        if (vhci_rx_queue == NULL) vhci_rx_queue = xQueueCreate(255, sizeof(uint8_t)); 
+        if (vhci_rx_queue == NULL) vhci_rx_queue = xRingbufferCreate(1024, RINGBUF_TYPE_BYTEBUF); 
 
         if (esp_bt_controller_mem_release(ESP_BT_MODE_CLASSIC_BT)) {
             ESP_LOGI(LOG_TAG, "Bluetooth controller release classic bt memory failed");
