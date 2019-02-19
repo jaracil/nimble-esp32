@@ -13,10 +13,12 @@ Clone this repository inside esp-idf or your project components directory.
 
 ## Examples
 There is a repo with examples.
+
 [nimble-esp32-examples](https://github.com/jaracil/nimble-esp32-examples)
 
 ## NimBLE Documentation
 [NimBLE user guide](https://mynewt.apache.org/latest/network/docs/index.html)
+
 [NimBLE tutorial](https://mynewt.apache.org/latest/tutorials/ble/ble.html)
 
 ## To-do
