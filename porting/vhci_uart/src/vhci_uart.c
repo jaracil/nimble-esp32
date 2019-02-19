@@ -5,6 +5,7 @@
 #include "freertos/ringbuf.h"
 #include "freertos/task.h"
 #include "esp_bt.h"
+#include "sdkconfig.h"
 
 
 #define LOG_TAG "vhci-uart"
@@ -67,7 +68,6 @@ static esp_vhci_host_callback_t vhci_cb = {
     .notify_host_send_available = notify_host_send_available,
     .notify_host_recv = notify_host_recv
 };
-
 
 static void uart_task(void *arg) {
     int data;
@@ -138,7 +138,11 @@ int hal_uart_init_cbs(int uart, hal_uart_tx_char tx_func, hal_uart_tx_done tx_do
         }
         if (!task_create) {
             task_create = true;
-            xTaskCreatePinnedToCore(uart_task, "uart_task", 2048, NULL, 5, NULL, 0);
+            int core = 0;
+            #if CONFIG_BTDM_CONTROLLER_PINNED_TO_CORE_1
+                core = 1;
+            #endif    
+            xTaskCreatePinnedToCore(uart_task, "uart_task", 2048, NULL, 5, NULL, core);
         }
 
         uart_open = true;
