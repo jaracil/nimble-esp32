@@ -52,12 +52,10 @@ static int wait_vhci_tx_avail() {
 }
 
 void notify_host_send_available(void) {
-    ESP_LOGI(LOG_TAG, "notify_host_send_available call");
     xEventGroupSetBits(evt_flags, EVT_FL_VHCI_TX_AVAIL);
 }
     
 int notify_host_recv(uint8_t *data, uint16_t len) {
-    ESP_LOGI(LOG_TAG, "notify_host_recv size:%d", len);
     if (!xRingbufferSend(vhci_rx_queue, data, len, pdMS_TO_TICKS(1000))) {
          ESP_LOGE(LOG_TAG," rx queue overflow");
     }
@@ -79,7 +77,7 @@ static void uart_task(void *arg) {
 
     while(true) {
         wait_open();
-        ESP_LOGI(LOG_TAG, "uart openned");
+        ESP_LOGI(LOG_TAG, "Open");
         while(uart_open) {
             ev_bits = xEventGroupWaitBits(evt_flags, EVT_FL_START_TX | EVT_FL_VHCI_RX_AVAIL | EVT_FL_CLOSE, pdTRUE, pdFALSE, portMAX_DELAY);
             if (ev_bits & EVT_FL_CLOSE) break;
@@ -91,34 +89,24 @@ static void uart_task(void *arg) {
                     buf_sz ++;
                 }
                 if (wait_vhci_tx_avail() != 0) break;
-                printf("send %d bytes to vhci:", buf_sz);
-                for(int i = 0; i < buf_sz; i++) {
-                    printf("%02x ", buf[i]);
-                }
-                printf("\n");
                 esp_vhci_host_send_packet(buf, buf_sz);
             }
 
             if (ev_bits & EVT_FL_VHCI_RX_AVAIL) {
-                printf("Received from vhci:");
-
                 size_t item_size;
                 uint8_t *item;
                 while((item = (uint8_t *) xRingbufferReceive(vhci_rx_queue, &item_size, 0)) != NULL) {
                     for (size_t i = 0; i < item_size; i++) {
                         rx_char_cb(cb_arg, item[i]);
-                        printf("%02x ", item[i]);
                     }
                     vRingbufferReturnItem(vhci_rx_queue, item);
                 }
-                printf("\n");
             }
         }
     }
 }
 
 int hal_uart_init_cbs(int uart, hal_uart_tx_char tx_func, hal_uart_tx_done tx_done, hal_uart_rx_char rx_func, void *arg) {
-    ESP_LOGI(LOG_TAG, "hal_uart_init_cbs call uart:%d", uart);
     if (!uart_open) {
         tx_char_cb = tx_func;
         rx_char_cb = rx_func;
@@ -161,17 +149,15 @@ int hal_uart_init_cbs(int uart, hal_uart_tx_char tx_func, hal_uart_tx_done tx_do
 }
 
 int hal_uart_init(int uart, void *cfg) {
-    ESP_LOGI(LOG_TAG, "hal_uart_init call");
     return 0;
 }
 
 int hal_uart_config(int uart, int32_t speed, uint8_t databits, uint8_t stopbits, enum hal_uart_parity parity, enum hal_uart_flow_ctl flow_ctl) {
-    ESP_LOGI(LOG_TAG, "hal_uart_config call");
     return 0;
 }
 
 int hal_uart_close(int uart) {
-    ESP_LOGI(LOG_TAG, "hal_uart_close");
+    ESP_LOGI(LOG_TAG, "Close");
     if (uart_open) {
         if (controller_enable) {
             if (esp_bt_controller_disable()) {
@@ -187,18 +173,15 @@ int hal_uart_close(int uart) {
 }
 
 void hal_uart_start_tx(int uart) {
-    ESP_LOGI(LOG_TAG, "hal_uart_start_tx call");
     xEventGroupSetBits(evt_flags, EVT_FL_START_TX);
     return ;
 }
 
 void hal_uart_start_rx(int uart) {
-    ESP_LOGI(LOG_TAG, "hal_uart_start_rx call");
-        xEventGroupSetBits(evt_flags, EVT_FL_START_RX);
+    xEventGroupSetBits(evt_flags, EVT_FL_START_RX);
     return ;
 }
 
 void hal_uart_blocking_tx(int uart, uint8_t byte) {
-    ESP_LOGI(LOG_TAG, "hal_uart_blocking_tx call");
     assert(0);
 }
