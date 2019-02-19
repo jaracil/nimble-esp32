@@ -120,5 +120,8 @@ COMPONENT_SRCDIRS := \
 	mynewt-nimble/nimble/host/util/src \
 	mynewt-nimble/nimble/host/src \
 
-
-CFLAGS += "-Wno-error=implicit-function-declaration"
+# Disable type limits warnings 
+mynewt-nimble/nimble/host/src/ble_hs_hci_cmd.o: CFLAGS += -Wno-type-limits
+mynewt-nimble/nimble/host/src/ble_hs_hci_evt.o: CFLAGS += -Wno-type-limits
+mynewt-nimble/porting/nimble/src/os_mempool.o: CFLAGS += -Wno-type-limits
+porting/npl/freertos/src/npl_os_freertos.o: CFLAGS += -Wno-type-limits
