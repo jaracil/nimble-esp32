@@ -6,10 +6,14 @@ The official bluetooth stack for ESP32 (Bluedroid) is too heavy.
 
 ## Install
 Clone this repository inside esp-idf or your project components directory.
-`cd components`
-`git clone https://github.com/jaracil/nimble-esp32.git`
-`git submodule ini`
-`git submodule update`
+
+```
+cd components
+git clone https://github.com/jaracil/nimble-esp32.git
+cd nimble-esp32
+git submodule ini
+git submodule update
+```
 
 ## Examples
 There is a repo with examples.
