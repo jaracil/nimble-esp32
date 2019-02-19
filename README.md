@@ -11,7 +11,7 @@ Clone this repository inside esp-idf or your project components directory.
 cd components
 git clone https://github.com/jaracil/nimble-esp32.git
 cd nimble-esp32
-git submodule ini
+git submodule init
 git submodule update
 ```
 
