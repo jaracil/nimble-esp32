@@ -102,6 +102,7 @@ COMPONENT_OBJS := \
 	port/npl/freertos/src/nimble_port_freertos.o \
 	port/npl/freertos/src/npl_os_freertos.o \
 	port/esp32/src/vhci_uart.o \
+	port/esp32/src/esp_nimble.o \
 
 COMPONENT_SRCDIRS := \
 	port/npl/freertos/src \
