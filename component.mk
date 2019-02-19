@@ -1,8 +1,8 @@
 COMPONENT_SUBMODULES := mynewt-nimble
 
 COMPONENT_ADD_INCLUDEDIRS := \
-	include \
-	porting/npl/freertos/include \
+	port/esp32/include \
+	port/npl/freertos/include \
 	mynewt-nimble/porting/nimble/include \
 	mynewt-nimble/nimble/include \
 	mynewt-nimble/nimble/host/include \
@@ -99,13 +99,13 @@ COMPONENT_OBJS := \
 	mynewt-nimble/ext/tinycrypt/src/cmac_mode.o \
 	mynewt-nimble/ext/tinycrypt/src/ecc_dsa.o \
 	mynewt-nimble/ext/tinycrypt/src/utils.o	\
-	porting/npl/freertos/src/nimble_port_freertos.o \
-	porting/npl/freertos/src/npl_os_freertos.o \
-	porting/vhci_uart/src/vhci_uart.o \
+	port/npl/freertos/src/nimble_port_freertos.o \
+	port/npl/freertos/src/npl_os_freertos.o \
+	port/esp32/src/vhci_uart.o \
 
 COMPONENT_SRCDIRS := \
-	porting/npl/freertos/src \
-	porting/vhci_uart/src \
+	port/npl/freertos/src \
+	port/esp32/src \
 	mynewt-nimble/porting/nimble/src \
 	mynewt-nimble/ext/tinycrypt/src \
 	mynewt-nimble/nimble/transport/uart/src \
@@ -124,4 +124,4 @@ COMPONENT_SRCDIRS := \
 mynewt-nimble/nimble/host/src/ble_hs_hci_cmd.o: CFLAGS += -Wno-type-limits
 mynewt-nimble/nimble/host/src/ble_hs_hci_evt.o: CFLAGS += -Wno-type-limits
 mynewt-nimble/porting/nimble/src/os_mempool.o: CFLAGS += -Wno-type-limits
-porting/npl/freertos/src/npl_os_freertos.o: CFLAGS += -Wno-type-limits
+port/npl/freertos/src/npl_os_freertos.o: CFLAGS += -Wno-type-limits
